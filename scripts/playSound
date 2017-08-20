@@ -1,0 +1,21 @@
+#!/bin/bash
+
+compile_dir='../compile/'
+sound_file=$compile_dir'songfile'
+
+# Check if compile directory exists
+if [ ! -d $compile_dir ]; then
+	mkdir $compile_dir;
+fi
+
+# Recompile
+cd ..
+make -s
+cd ./scripts
+
+if [ ! -f $sound_file ]; then
+	echo "Warning: No sound file has been generated"
+	./generateSoundFile
+fi
+
+aplay $sound_file -r 44100 -f S16_LE

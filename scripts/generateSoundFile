@@ -1,0 +1,16 @@
+#!/bin/bash
+
+compile_dir='./compile'
+
+cd ..
+if [ ! -d $compile_dir ]; then
+	mkdir $compile_dir;
+fi
+
+make -s
+
+echo "Generating sound file"
+
+./compile/play_tone
+
+echo "Finished generating sound file"

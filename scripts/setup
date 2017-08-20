@@ -1,0 +1,12 @@
+#!/bin/bash
+
+compile_dir='../compile'
+
+if [ ! -d $compile_dir ]; then
+	mkdir $compile_dir;
+	echo "Created compile directory";
+else 
+	echo "Nothing needs to be done";
+fi
+
+echo "Setup complete"	
