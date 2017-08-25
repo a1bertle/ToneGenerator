@@ -12,6 +12,8 @@ using namespace std;
 #define NUM_VOICES 4
 #define MIDDLE_OCT 4
 #define NOTES_PER_OCTAVE 12
+#define MAX_NOTES 128
+#define NUM_REPETITIONS 4
 
 // Source Code: https://codereview.stackexchange.com/questions/83504/basic-c-tone-generator
 
@@ -26,108 +28,80 @@ int main(int argc, char *argv[])
 	
 	std::ofstream outfile("./compile/songfile", std::ofstream::binary);
 	
-	double attack, decay, amplitude;
+	double attack, decay, amplitude, strength;
 	decay = 0.05;
 	amplitude = 0.5; // Starts clipping around amplitude ~= 1
 
 	// Array of pointers to Tone objects
 	Tone *genTones[NUM_VOICES];
-	//Tone *freqMod[HUM_VOICES];
+	Tone *freqMod[NUM_VOICES];
 
 	for (int gt = 0; gt < NUM_VOICES; gt++) {
 		genTones[gt] = new Tone(SAMPLE_RATE);
+		freqMod[gt] = new Tone(SAMPLE_RATE);
 	}
+	
+	// Play Viva La Vida
+	string voices[NUM_VOICES][18] = {
+	{"C3s", "C3s", "C3s", "C3s", "D3s", "D3s", "D3s", "D3s", "D3s", "G2s", "G2s", "G2s", "G2s", "F2n", "F2n", "F2n", "F2n", "F2n"},
+	{"G4s", "G4s", "G4s", "G4s", "G4s", "G4s", "G4s", "G4s", "G4s", "C4n", "C4n", "C4n", "C4n", "C4n", "C4n", "C4n", "C4n", "C4n"},
+	{"G4s", "G4s", "G4s", "G4s", "A4s", "A4s", "A4s", "A4s", "A4s", "D4s", "D4s", "D4s", "D4s", "F4n", "F4n", "F4n", "F4n", "F4n"},
+	{"C5s", "C5s", "C5s", "C5s", "C5s", "C5s", "C5s", "C5s", "C5s", "G4s", "G4s", "G4s", "G4s", "G4s", "G4s", "G4s", "G4s", "G4s"}};
 
-	Tone *freqMod[NUM_VOICES];
-	for (int fm = 0; fm < NUM_VOICES; fm++) {
-		freqMod[fm]= new Tone(SAMPLE_RATE);
-
-	} 
-//	string notes1[] = {"C3n"};
-//	string notes2[] = {"G3n"};
-//	string notes3[] = {"C4n"};
-//	string notes4[] = {"E4n"};
-//	string notes5[] = {"G4n"};
-
-
-//	string notes1[] = {"C4n", "D4n", "E4n", "F4n", "G4n", "A4n", "B4n", "C5n"};
-
-	string notes1[] = {"C3s", "C3s", "C3s", "C3s",
-					   "D3s", "D3s", "D3s", "D3s", "D3s",
-					   "G2s", "G2s", "G2s", "G2s",
-					   "F2n", "F2n", "F2n", "F2n", "F2n"};
-
-	string notes2[] = {"G4s", "G4s", "G4s", "G4s",
-	 				   "G4s", "G4s", "G4s", "G4s", "G4s",
-	 				   "C4n", "C4n", "C4n", "C4n",
-	 				   "C4n", "C4n", "C4n", "C4n", "C4n"};
-	string notes3[] = {"G4s", "G4s", "G4s", "G4s",
-					   "A4s", "A4s", "A4s", "A4s", "A4s",
-					   "D4s", "D4s", "D4s", "D4s", 
-					   "F4n", "F4n", "F4n", "F4n", "F4n"};
-	string notes4[] = {"C5s", "C5s", "C5s", "C5s",
-					   "C5s", "C5s", "C5s", "C5s", "C5s",
-					   "G4s", "G4s", "G4s", "G4s",
-					   "G4s", "G4s", "G4s", "G4s", "G4s"};
-
-	//double dur[] = {1, 1, 1, 1, 1, 1, 1, 1};
 	double dur[] = {0.5, 0.5, 0.5, 0.25, 0.5, 0.5, 0.25, 0.5, 0.5, 0.5, 0.5, 0.5, 0.25, 0.5, 0.5, 0.25, 0.5, 0.5};
 
-	//double dur[] = {10};
-
-	double genFreq, duration;
-
-	double freq1, freq2, freq3, freq4, freq5;
-	double sample1, sample2, sample3, sample4, sample5, totalSample;
+	double frequency[NUM_VOICES], sample[NUM_VOICES];
+	double duration, totalSample;
+	int dist[NUM_VOICES];
 
 	// Generate the required samples
-	for (int round = 0; round < 4; round++) {
+	for (int round = 0; round < NUM_REPETITIONS; round++) {
 		for (int index = 0; index < (sizeof(dur)/sizeof(dur[0])); index++) {
 
-
-			duration = dur[index]/ 1.5;
+			duration = dur[index]/ 1.5; 
 			attack = 0.01;
-
+			
+			// Reset all Tone objects so sine waves start at time 0
 			for (int i = 0; i < NUM_VOICES; i++) {
 				genTones[i]->reset();
 				freqMod[i]->reset();
 			}
-			
 
-			for (double t = 0; t < (duration + decay); t += 1 / SAMPLE_RATE)
-			{
-
-				double strength;
+			for (double t = 0; t < (duration + decay); t += 1 / SAMPLE_RATE) {
 
 				// Linear attack envelope, Constant until the decay time, then interpolate linearly out
 				if  (t < attack)
 					strength = t / attack;
-				else if (t < duration)
+				// Maintain a constant envelope for the duration of the note
+				else if (t < duration) 
  					strength = 1;
+				// Interpolate linearly out for the decay
 				else
 					strength = 1 - (t - (duration)) / decay;
 
-				int dist[] = {getDistFromKey(notes1[index]),
-							  getDistFromKey(notes2[index]), 
-							  getDistFromKey(notes3[index]),
-							  getDistFromKey(notes4[index])};
+				// Reset the sample
+				totalSample = 0;
 
-				// Superimpose the samples from each tone generator
-				freq1 = (notes1[index] == "R") ? 0 : (getNoteFreq(dist[0]));// + freqMod[0]->nextSample(2, getNoteFreq(dist[0]));
-				sample1 = genTones[0]->nextSample(freq1, strength * amplitude);
+				// Go through each voice and generate a total sample by summing up the samples from each voice
+				for (int d = 0; d < NUM_VOICES; d++) {
+					
+					// Calculate the frequency of the given note
+					dist[d] = getDistFromKey(voices[d][index]);
 
-				freq2 = (notes2[index] == "R") ? 0 : (getNoteFreq(dist[1]));// + freqMod[1]->nextSample(2, getNoteFreq(dist[1]));
-				sample2 = genTones[1]->nextSample(freq2, strength * amplitude);
+					// If there is a rest, set the frequency to 0
+					frequency[d] = (voices[d][index] == "R") ? 0 : (getNoteFreq(dist[d]));
 
-				freq3 = (notes3[index] == "R") ? 0 : (getNoteFreq(dist[2]));// + freqMod[2]->nextSample(2, getNoteFreq(dist[2]));
-				sample3 = genTones[2]->nextSample(freq3, strength * amplitude);
+					// Grab the next sample
+					sample[d] = genTones[d]->nextSample(frequency[d], strength * amplitude);
 
-				freq4 = (notes4[index] == "R") ? 0 : (getNoteFreq(dist[3]));// + freqMod[3]->nextSample(2, getNoteFreq(dist[3]));
-				sample4 = genTones[3]->nextSample(freq4, strength * amplitude);
-
-
-				totalSample = (sample1 + sample2 + sample3 + sample4) / NUM_VOICES;
+					// Accumulate the samples for each voice (superposition property)
+					totalSample += sample[d];
+				}
 				
+				// Average out the total sample to avoid clipping 
+				totalSample /= NUM_VOICES;
+			
+				// Write the sample to an output file
 				if (outfile.good()) {
 				    	write_sample(outfile, totalSample);
 				}
@@ -144,10 +118,9 @@ double getNoteFreq(double distFromMidC) {
 	return MIDDLE_C * pow(2, (distFromMidC / NOTES_PER_OCTAVE));
 }
 
-
 // Enter keyChar as a string:
 // C4n -> C4
-// C4f -> C4 flat
+// C4b -> C4 flat
 // C4s -> C4 sharp
 int getDistFromKey(string keyChar) {
 	char key;
@@ -179,9 +152,9 @@ int getDistFromKey(string keyChar) {
 	plusOct = (oct - MIDDLE_OCT) * NOTES_PER_OCTAVE;
 
 	// Adjust for sharps, flats, or neutral
-	if 		(orn == 'n') ornAdj = 0;
+	if      (orn == 'n') ornAdj = 0;
 	else if (orn == 's') ornAdj = 1;
-	else if (orn == 'f') ornAdj = -1;
+	else if (orn == 'b') ornAdj = -1;
 	else {
 		printf("Error: invalid ornament!!!\n");
 		return 0;
@@ -192,8 +165,8 @@ int getDistFromKey(string keyChar) {
 	return finalDist;
 }
 
-void write_sample(std::ostream &stream, double sample)
-{
+void write_sample(std::ostream &stream, double sample) {
+	// Limit bits per sample to 16 bits by zeroing out upper 16 bits
     	int16_t output = (int16_t) (0x7FFF * sample);
     	stream.write((char *) &output, sizeof(int16_t) / sizeof(char));
 }
